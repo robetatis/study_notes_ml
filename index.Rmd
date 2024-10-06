@@ -1,0 +1,271 @@
+# **Some fundamental ideas of time series modelling**
+
+**Author**: Dr.-Ing. Roberto Tatis-Muvdi
+
+**Sources**: 
+
+  1. https://online.stat.psu.edu/stat510/
+  2. Shumway, R., Stoffer, D. (2011). Time series analysis and its applications, with R examples, 3rd edition. Springer New York Dordrecht Heidelberg London. e-ISBN 978-1-4419-7865-3
+
+## **0. Motivation**
+
+These notes aim to explain some basic principles of time series modelling in a practical way, but without avoiding critical theoretical details. It's a summary of (hopefully) **understandable explanations** of key ideas, and not just a plain presentation of concepts, which is often what I've found (and struggled with) in many textbooks.
+
+## **1. What are time series, and why are they different from other data sets?**
+
+A time series is just a sequence of measurements of a variable (GDP, wind speed, population size, no. users, no. transactions, etc.) over time, where every data point has a time associated with it (typically called a 'time stamp'). Here's a manual example:
+
+```{r, echo=TRUE}
+daily_transactions <- data.frame(
+  date = seq(as.Date('2023-06-05'), as.Date('2023-06-12'), by='day'),
+  n = c(7, 5, 7, 11, 13, 18, 5, 6)
+)
+plot(daily_transactions, type='b', main='No. daily transactions', ylim=c(0, 20))
+```
+
+When variables are measured over time, data points that are close to each other are unlikely to be independent, and this non-independence means we cannot use classical statistical approaches on that data, like OLS, ANOVA, etc. To see why, here's an example. Say we wanted to estimate the correlation between duration of weekly exercise and blood pressure, and you measured these variables every week for the same person over 1 year, and got this data:
+
+```{r, echo=FALSE}
+load('../data/df')
+par(mfcol=c(2, 1), mar=c(4, 5, 1, 1))
+plot(
+  df$week, df$duration_exercise, 
+  type='o', pch=20, 
+  ylab='Exercise\nduration [min.]', xlab='')
+plot(
+  df$week, df$blood_pressure, 
+  type='o', pch=20, col='red', 
+  ylab='Avg. systolic blood\npressure [mmHg]', xlab='Week')
+```
+
+Although the data suggest an inverse relationship between exercise and blood pressure, we also see that, for both variables, high values tend to be surrounded by high values, and the same for low values. Further, this 'inertia' may result from underlying *mechanisms* that keep high blood pressure high and low blood pressure low for some time *regardless of exercise*. 
+
+Put another way, it's as if each data point influences the next few data points, and this happens throughout the entire time series. So, if you do an OLS and obtain significant results, you'd be *falsely attributing* the observed variations in blood pressure to exercise, and all your estimated statistics would be telling you things that aren't true.   
+
+These 'inertia' mechanisms exists everywhere in nature (to different degrees!), and data can be influenced by them whenever we measure variables over time. The manifestation of these mechanisms is what in time series modelling is called *autocorrelation*, where *auto* highlights the fact that we're talking about the correlation of a variable with past values of itself. More on autocorrelation later.
+
+## **2. Autoregressive models of time series**
+
+The logic behind autoregressive models is that, in some cases, it may be possible to use past values of the response variable to predict its current or future values instead of using explanatory variables, as it's usually done 
+
+(**Side note**: It's also possible to use a combination of autocorrelation and correlation with other variables - an approach called *cross-correlation*, see [here](https://online.stat.psu.edu/stat510/lesson/8/8.2))
+
+The idea here is that the response variable itself already stores all the effects of its driving factors, and that we can use that regularity to predict what's going to happen next. Obviously, this will only succeed if those regularities really do exist and are strong enough, or in other words, if there really is enough **structure** in the data.
+
+In similar vein, Shumway & Stoffer (2011) use the word *smoothness* to refer to the fact that time series with autocorrelation have values that don't just move up and down haphazardly, but rather seem 'tied' to past observations, either positively or negatively. Thus, the goal of any mathematical model of a time series is to mimic that smoothness.
+
+### **2.1. Some notation**
+
+We'll represent a time series as a sequence of values $x_{1}$, $x_{2}$, ..., $x_{n}$. Also, $x_{t}$ represents any particular value along that sequence, at an unspecified time $t$. Past or future values of the series are denoted as $x_{t-1}$, $x_{t-2}$, $x_{t-h}$, $x_{t+1}$, etc., where $t-1$, $t-2$, $t-h$, $t+h$ etc. indicate the number of time units we're looking into the past or the future. The number being subtracted or added to $t$ in the subscripts is the **lag**, denoted as $h$ whenever we refer to an unknown lag.
+
+### **2.2. A first autoregressive time series model: AR(1)**
+
+So, how do we use the above logic to write a mathematical model of a time series? Well, since we're saying that the present is a function of the past, we could write something like: 
+
+$$x_{t}=\delta+\phi_{1}~x_{t-1}+w_{t}$$
+where $x_{t}$ is the current value, $x_{t-1}$ is the previous value, $\delta$ = some constant, $\phi$ = autocorrelation coefficient for lag 1, and $w_{t}$ is *random noise*. This is called an autoregressive model of order 1, or AR(1) model. More details on it later.
+
+The last term ($w_{t}$) is key because it indicates the *stochastic nature* of the model. An analogy with simple linear regression can help illustrate this critical point.
+
+#### **2.2.1. What makes stochastic models stochastic?**
+
+In OLS regression, we model the response $y$ as $y=\beta_{0}+\beta_{1}~x+\epsilon$, and, for a single observation $y_{i}$, we say that $y_{i}=\beta_{0}+\beta_{1}~x_{i}+\epsilon_{i}$. What we're saying with this is that any realization (i.e., any particular value) $y_{i}$ of the random variable $y$ can be understood (i.e., computed, modeled) as a linear function of it's corresponding $x_{i}$ (the first two terms $\beta_{0}+\beta_{1}~x_{i}$) plus a *random error* 
+$\epsilon_{i}$. 
+
+Why this random error? Because nature is 'noisy', and even if $x$ and $y$ really are correlated, there will always be some spread around the line given by $\beta_{0}+\beta_{1}~x$. In other words, at any given value of $x$, $x_{i}$, we don't have a 'corresponding' value of $y$, $y_{i}$, but rather a *distribution* for $y$. The OLS line $\beta_{0}+\beta_{1}~x$ only represents the expected value of $y$ given $x$. Formally, this is written as $E(y|x)=\beta_{0}+\beta_{1}~x$, which is obtained by simply taking the expected value given $x$ ($E(...|x)$) on both sides of $y=\beta_{0}+\beta_{1}~x+\epsilon$, and noting that $E(\epsilon|x)=0$ (since OLS assumes random error to have a normal distribution with zero mean and variance $\sigma^2$).
+
+It's important to understand that this 'noise' exists at the *population* level, and that it's different from *sampling error*. If we could somehow observe the entire *population* of $(x, y)$ values (the *joint distribution* of $x$ and $y$, written as $f_{x,y}(x_{i},y_{i})$), we'd still see a 'cloud' of points instead of a straight line. That's why $y$ has a distribution at every value of $x$, and if we could sample the full population, we'd observe that full distribution. Obviously that's not possible in practice, so we have to estimate the parameters of $y$'s distribution along $x$ based on a *sample*, and that's what gives rise to *sampling error*.
+
+Given that this is how nature behaves, we include a term in the equation that 'mimics' this noisy behavior, and that's $\epsilon$, or, in the time series model above, $w_{t}$. Obviously, since these terms are random, we need a distribution for them, and in many cases it's useful to assume a normal distribution with a mean of 0 and a variance of some value $\sigma$ (which we estimate from the data). Further, we also assume that, across all values of $x$ (or $t$ in the case of time series), that distribution is *the same* (e.g., always normal, instead of normal for certain values of $t$ and exponential for others). Also, we assume that the properties (mean, variance, ...) of the distribution at one value of $t$ are disconnected from those at any other value of $t$. Formally, we say that $w_{t}$is *'iid'* - **independent and identically distributed**. If we didn't assume that we'd have to use the data to estimate the parameters of a different distribution for $w_{t}$ at every $t$, and that's just too many parameters for any data set.
+
+Having this random term when we compute $x_{t}$ (or $y$ in OLS regression) means that our computed values will have intervals around them, and the width of those intervals will depend on the value of $\sigma$ (which we never observe, since we only have a sample estimate). Another way to look at this is that $x_{t}$ doesn't really have 'fixed' values, but it's rather a distribution that 'shows' its values when we observe it, and our job is to characterize that distribution using the data. So, in summary, $x_{t}$ is a *random* variable, a time series {$x_{t}$} is a sequence of random variables such as $x_{t}$, and the time series data we have is a sequence of the realizations of each of those random variables (a random draw from each $x_{t}$'s distribution).
+
+#### **2.2.2. An illustration of sampling error using OLS regression as an example**
+
+If we could observe the full population of $(x_{i},y_{i})$ pairs, we could see exactly the distribution of $y$ given $x$ and compute its properties at every $x_{i}$ ($E(y|x)$, $Var(y|x)$, etc.). However, since we only have a sample, all we can do is compute *sample estimates* of the population parameters. Just for the sake of illustrating this point, let's assume we could observe the full population of $(x,y)$ pairs, and that $x$ and $y$ are well correlated. A scatterplot of the points and the *population* OLS line would look like this:
+
+```{r, echo=FALSE}
+plot_se_ols <- function(n_sample){
+  
+  n_pop <- 1e4
+
+  beta0 <- 0
+  beta1 <- 1.3
+  sigma_epsilon <- 5
+  epsilon <- rnorm(n_pop, mean=0, sd=sigma_epsilon)
+  
+  x <- rnorm(n_pop, mean=10, sd=10)
+  y <- beta0 + beta1*x + rnorm(n_pop, mean=0, sd=sigma_epsilon)
+  
+  i_sample <- sample(x=1:length(x), size=n_sample)
+
+  x_sample <- x[i_sample]; y_sample <- y[i_sample]
+
+  plot(x, y, col='gray', pch=20, xaxt='n', yaxt='n', xlab='n', ylab='n')
+  abline(lm(y~x), col='gray50', lwd=2)
+  if(n_sample > 0){
+    points(x_sample, y_sample, col='black')
+    abline(lm(y_sample~x_sample), col='black', lwd=2)
+  }
+  mtext('x', 1, line=0.5); mtext('y', 2, line=0.5)
+}
+par(mar=c(3, 2, 3, 1))
+plot_se_ols(0)
+``` 
+
+Now, let's say we take a random sample of size 5 out of this population, compute the *sample* OLS line and plot that on top of the population (sample in black, population in gray):
+
+```{r, echo=FALSE}
+par(mar=c(3, 2, 3, 1))
+plot_se_ols(5)
+``` 
+
+We see that the sample OLS line deviates from the population line, simply because it's based on a subset of the gray points, and, by chance, it's possible our sample doesn't represent *exactly* the population, although it does resemble it somewhat. Now, say we took 12 more samples of the same size ($n=5$):
+
+```{r, echo=FALSE}
+par(mfcol=c(3, 4), mar=c(1.5, 1.5, 1, 1))
+for(i in seq(1, 12, by = 1)) plot_se_ols(5)
+```
+
+See how every time we *repeat* the random sampling the OLS line changes a bit? That's called *variation upon replication*; it's a fundamental fact of working with random variables and the source of *sampling error*. Because we're computing statistics based on *samples*, and our results would *vary upon replication*, it's necessary to attach a measure of that variability to every sample statistic we compute. Those are the standard errors we see in any inferential statistical analysis, and the basis of confidence and prediction intervals for sample statistics (like the sample mean, variance, covariance, $r^2$, etc.).
+
+One final point before moving back to time series models. Let's take again 12 random samples, but now $n$ will be larger, say 100:
+
+```{r, echo=FALSE}
+par(mfcol=c(3, 4), mar=c(1.5, 1.5, 1, 1))
+for(i in seq(1, 12, by = 1)) plot_se_ols(100)
+```
+
+We note immediately that the variation of the sample OLS lines around the population line is much smaller with this new, larger $n$. That happens simply because taking a larger sample gives us a better chance of representing the entire population. With a small sample, we may end up with mostly large values, or mostly small values, and so on. With a larger sample, we can represent the population better, and this leads to smaller *variation upon replication*. It's because of this that you find $n$ in the denominator of formulas for computing the standard error of sample statistics: a larger $n$ leads to a smaller standard error.
+
+### **2.3. Some theoretical stochastic processes**
+
+Let's use some examples of stochastic processes and their models to cover a few fundamental concepts in autoregressive time series modeling.
+
+#### **2.3.1. Random noise**
+
+This is the 'elementary' stochastic process. It's just a sequence of uncorrelated random variables $w_{t}$, where each one can have a different distribution (the least constrained case) or, as is often done, we can say they all have the same distribution (*iid*), typically a normal distribution with mean 0 and some variance $\sigma_{w}^2$. In that case we write $w_{t}\sim N(0, \sigma_{w}^2)$ to say that our random noise is normally distributed with mean 0 and variance $\sigma_{w}^2)$. 
+
+The equation for our white noise series is then
+
+$$x_{t}=w_{t}$$
+
+which simply says that, at every $t$, the value of the series $x_{t}$ is a draw from the distribution of $w_{t}$. This random noise series is, well, quite noisy, and is mostly just used as a model for unexplained variation (referred to as noise using an analogy from sound engineering).
+
+#### **2.3.2. Random walk, with and without drift**
+
+One way to introduce *smoothness* to this theoretical noisy series is to make the future a simple function of the past:
+
+$$x_{t}=\delta+x_{t-1}+w_{t}$$
+
+where we're simply saying that the current value $x_{t}$ is equal to the past value $x_{t-1}$ plus some constant $\delta$ (called the *drift*') plus random noise at $t$, $w_{t}$. Obviously, to apply this model we need the starting value $x_{0}$. If $\delta\neq0$, the above model is called a *random walk with drift*, whereas if $\delta=0$, the model's just called a *random walk*. Here's some R code and plots with examples for these three types of models.  
+
+
+
+stationarity
+
+ACF, PACF, 
+
+
+
+```{r}
+# random noise
+w_t <- runif(100, -1, 1)
+x_t_random_noise = w_t
+
+# random walk
+x_t_random_walk <- numeric(length = 100)
+x_t_random_walk[1] <- 0
+for(i in 2:length(w_t)){
+  x_t_random_walk[i] <- x_t_random_walk[i-1] + w_t[i]
+  
+}
+
+# random walk with drift
+delta <- 1.2
+x_t_random_walk_drift <- numeric(length = 100)
+x_t_random_walk_drift[1] <- 0
+for(i in 2:length(w_t)){
+  x_t_random_walk_drift[i] <- delta + x_t_random_walk_drift[i-1] + w_t[i]
+  
+}
+
+par(mfrow=c(3, 5), mar=c(4, 3, 3, 1))
+
+plot(x_t_random_noise, type='o', pch=20, main='random noise')
+acf(x_t_random_noise, xlim=c(1, 20), ylim=c(-1, 1), main='random noise ACF')
+pacf(x_t_random_noise, xlim=c(1, 20), ylim=c(-1, 1), main='random noise PACF')
+acf(diff(x_t_random_noise), xlim=c(1, 20), ylim=c(-1, 1), main='diff random noise ACF')
+pacf(diff(x_t_random_noise), xlim=c(1, 20), ylim=c(-1, 1), main='diff random noise PACF')
+
+plot(x_t_random_walk, type='o', pch=20, main='random walk')
+acf(x_t_random_walk, xlim=c(1, 20), ylim=c(-1, 1), main='random walk ACF')
+pacf(x_t_random_walk, xlim=c(1, 20), ylim=c(-1, 1), main='random walk PACF')
+acf(diff(x_t_random_walk), xlim=c(1, 20), ylim=c(-1, 1), main='random walk diff ACF')
+pacf(diff(x_t_random_walk), xlim=c(1, 20), ylim=c(-1, 1), main='random walk diff PACF')
+
+plot(x_t_random_walk_drift, type='o', pch=20, main='random walk drift')
+acf(x_t_random_walk_drift, xlim=c(1, 20), ylim=c(-1, 1), main='random walk drift ACF')
+pacf(x_t_random_walk_drift, xlim=c(1, 20), ylim=c(-1, 1), main='random walk drift PACF')
+acf(diff(x_t_random_walk_drift), xlim=c(1, 20), ylim=c(-1, 1), main='random walk drift diff ACF')
+pacf(diff(x_t_random_walk_drift), xlim=c(1, 20), ylim=c(-1, 1), main='random walk drift diff PACF')
+```
+
+
+
+
+
+### Small samples are a problem
+
+with small $n$, it's very hard to determine the distribution, in the sense that very different distributions can be fitted to the sample with similar $RSME$. As $n$ grows, the difference becomes larger, and it's much clearer what the wrong distribution is. In the following example, the right distribution is a standard normal normal $Z(0,1)$, and the wrong one is an exponential.  
+
+```{r}
+ntrials <- 10
+n <- seq(2, 50, by=10)
+
+results <- data.frame(
+  n=n, 
+  min=NA, 
+  mean=NA, 
+  max=NA
+)
+
+counter <- 0
+for(ni in n){
+  counter <- counter + 1
+  delta_rmse <- numeric(length=ntrials)
+  for(j in 1:ntrials){
+    x_exp <- rexp(ni)
+    x_norm <- rnorm(ni)
+    
+    qobs_exp <- sort((x_exp - mean(x_exp))/sd(x_exp))
+    qobs_norm <- sort((x_norm - mean(x_norm))/sd(x_norm))
+    
+    pobs <- (1:ni)/(ni+1)
+    
+    qtheoretical <- qnorm(pobs, mean=0, sd=1)
+    
+    rmse_norm <- sqrt(sum((qtheoretical - qobs_norm)^2)/ni)
+    rmse_exp <- sqrt(sum((qtheoretical - qobs_exp)^2)/ni)
+    
+    delta_rmse[j] <- (rmse_exp - rmse_norm)/rmse_norm * 100
+  }
+  results[counter, 'min'] <- min(delta_rmse)
+  results[counter, 'mean'] <- mean(delta_rmse)
+  results[counter, 'max'] <- max(delta_rmse)
+}
+ymax <- max(results$max)
+ymin <- min(results$min)
+
+plot(results$n, results$min, pch=20, type='l', ylim=c(ymin, ymax), col='darkgray',
+     ylab=expression(Delta~RMSE))
+lines(results$n, results$mean, pch=20, type='l')
+lines(results$n, results$max, pch=20, type='l', col='darkgray')
+```
+
+
+
+
+
+
+
