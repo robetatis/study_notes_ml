@@ -137,7 +137,7 @@ acf(ols_trend_seasonal$residuals, xlim=c(1, 20), ylim=c(-1, 1), main='ACF residu
 # stationarity
 # *******************
 
-# related to how distribution of stochastic process {X_t}, and its mean, variance, 
+# related to how distribution of stochastic process {x_t}, and its mean, variance, 
 # and covariance at a particular lag, vary over time
 
 # strict/strong stationarity: 
