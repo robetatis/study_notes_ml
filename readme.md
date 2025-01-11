@@ -1,4 +1,4 @@
-4# **Notes from [NYU Tandon ML 2022](https://chinmayhegde.github.io/fodl/)**
+# **Notes from [NYU Tandon ML 2022](https://chinmayhegde.github.io/fodl/)**
 
 ## **The three fundamental problems of machine learning**
 
