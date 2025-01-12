@@ -235,7 +235,7 @@ def plot_grid(df, nrides_total_grid, nrow, ncol):
     im = ax.imshow(
         nrides_total_grid, 
         cmap='coolwarm', origin='lower', 
-        vmin=0, vmax=5000, alpha=0.4, 
+        vmin=0, vmax=100, alpha=0.4,
         extent=(lng_bins[0], lng_bins[-1], lat_bins[0], lat_bins[-1])
     )
     ax.scatter(x=df['start_lng'], y=df['start_lat'], s=0.1, c='gray')
