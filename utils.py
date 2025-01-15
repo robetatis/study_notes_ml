@@ -4,10 +4,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import imageio
-import requests
-from io import StringIO
-from pathlib import Path
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
@@ -15,35 +11,6 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.api import VAR
 from sklearn.metrics import root_mean_squared_error
 from sklearn.preprocessing import StandardScaler
-
-
-def get_url(path):
-
-    path = Path(path).expanduser()
-
-    with open(path, 'r') as f:
-        url = f.read()
-    
-    return url
-
-
-def download_data(url):
-
-    path = Path('data/demand.csv')
-
-    if not path.exists:
-
-        try:
-            response = requests.get(url)
-            response.raise_for_status()  # Check if the request was successful
-
-            csv_data = StringIO(response.text)
-            df = pd.read_csv(csv_data)
-
-            df.to_csv('data/demand.csv')
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading the CSV file: {e}")
 
 
 def load_data(path):
@@ -55,11 +22,13 @@ def load_data(path):
             'start_time', 
             'start_lat', 
             'start_lng', 
-            'end_lat', 
-            'end_lng', 
-            'ride_value'
         ]
     )
+
+
+def summarize_data(df):
+    print(f"Total no. events = {df.shape[0]:,}")
+    print(f"Time range = {df.index.min().strftime('%Y-%m-%d %H:%M')} - {df.index.max().strftime('%Y-%m-%d %H:%M')}")
 
 
 def build_time_components(df):
@@ -71,85 +40,40 @@ def build_time_components(df):
     df['day_of_month'] = df.index.day
 
 
-def summarize_data(df):
-    print(f"No. ride requests = {df.shape[0]:,}")
-    print(f"Time range = {df.index.min().strftime('%Y-%m-%d %H:%M')} - {df.index.max().strftime('%Y-%m-%d %H:%M')}")
-    print(f"Min. ride value = {df['ride_value'].min():.2f}")
-    print(f"Max. ride value = {df['ride_value'].max():.2f}")
-    print(f"Mean. ride value = {df['ride_value'].mean():.2f}")
-    print(f"Median. ride value = {df['ride_value'].quantile(0.5):.2f}")
-
-
-def rides_per_capita_month():
-    print(f'620k rides in March 2022 in a city of 420k inhabitants ~ {627210/426000:.2f} rides per capita-month')
-
-
-def bin_ride_value(df, bin_size):
-    hist, bin_edges = np.histogram(df, bins=np.arange(0, df['ride_value'].max(), bin_size))
-    for i in range(len(hist)):
-        print(f"Range {bin_edges[i]:.1f} - {bin_edges[i+1]:.1f} --- {hist[i]}")
-
-
-def bin_by_cut_value(df, cut_value):
-    normal_range = df[df['ride_value'] <= cut_value]
-    outliers =  df[df['ride_value'] > cut_value]
-
-    perc_normal_range = 100.0 * (normal_range.shape[0] / (normal_range.shape[0] + outliers.shape[0]))
-    perc_outliers = 100.0 * (outliers.shape[0] / (normal_range.shape[0] + outliers.shape[0]))
-    perc_revenue_outliers = 100.0 * df[df['ride_value'] > cut_value]['ride_value'].sum()/df['ride_value'].sum()
-
-    print(f"No. datapoints below cut value = {normal_range.shape[0]}; ({perc_normal_range:.2f}%)")
-    print(f"No. datapoints above cut value = {outliers.shape[0]}; ({perc_outliers:.2f}%)")
-    print(f"Perc. revenue above cut value = {perc_revenue_outliers:.2f}%")
-
-
 def summary_plots(df):
 
     build_time_components(df)
     
-    fig, ax = plt.subplots(2, 3, figsize=(10, 5))
+    fig, ax = plt.subplots(1, 4, figsize=(10, 3))
 
-    ax[0, 0].set_title('hour_of_day')
-    ax[0, 0].set_ylabel('n_rides')
-    ax[0, 0].hist(df['hour_of_day'], bins=24, range=(0, 24), edgecolor='black')
-    ax[0, 0].set_xticks(np.arange(0, 25, 2))
-    ax[0, 0].set_xticklabels(np.arange(0, 25, 2))
+    ax[0].set_title('hour_of_day')
+    ax[0].set_ylabel('n_rides')
+    ax[0].hist(df['hour_of_day'], bins=24, range=(0, 24), edgecolor='black')
+    ax[0].set_xticks(np.arange(0, 25, 2))
+    ax[0].set_xticklabels(np.arange(0, 25, 2))
 
-    ax[0, 1].set_title('day_of_week')
-    ax[0, 1].set_ylabel('n_rides')
-    ax[0, 1].hist(df['day_of_week'], bins=7, range=(0, 7), edgecolor='black')
-    ax[0, 1].set_xticks(np.arange(0, 7, 1) + 0.5)
-    ax[0, 1].set_xticklabels(['Mo', 'Tu', 'We', 'Th', 'Fr.', 'Sa.', 'Su.'])
+    ax[1].set_title('day_of_week')
+    ax[1].set_ylabel('n_rides')
+    ax[1].hist(df['day_of_week'], bins=7, range=(0, 7), edgecolor='black')
+    ax[1].set_xticks(np.arange(0, 7, 1) + 0.5)
+    ax[1].set_xticklabels(['Mo', 'Tu', 'We', 'Th', 'Fr.', 'Sa.', 'Su.'])
 
-    ax[0, 2].set_title('week_of_year')
-    ax[0, 2].set_ylabel('n_rides')
-    ax[0, 2].hist(df['week_of_year'], bins=5, range=(9, 14), edgecolor='black')
-    ax[0, 2].set_xticks(np.arange(9, 14, 1) + 0.5)
-    ax[0, 2].set_xticklabels(np.arange(9, 14, 1))
+    ax[2].set_title('week_of_year')
+    ax[2].set_ylabel('n_rides')
+    ax[2].hist(df['week_of_year'], bins=5, range=(9, 14), edgecolor='black')
+    ax[2].set_xticks(np.arange(9, 14, 1) + 0.5)
+    ax[2].set_xticklabels(np.arange(9, 14, 1))
 
-    ax[1, 0].set_title('ride_value, 0 - 10 Eur.')
-    ax[1, 0].set_ylabel('n_rides')
-    ax[1, 0].set_xlabel('ride_value')
-    ax[1, 0].hist(df['ride_value'], bins=np.arange(0, 11, 1), edgecolor='black')
-    ax[1, 0].set_xticks(np.arange(0, 11, 1))
-    ax[1, 0].set_xticklabels(np.arange(0, 11, 1))
-
-    ax[1, 1].set_title('ride_value, >10 Eur.')
-    ax[1, 1].set_ylabel('n_rides')
-    ax[1, 1].hist(df['ride_value'], bins=np.arange(10, 3200, 50), edgecolor='black')
-    ax[1, 1].set_xlabel('ride_value')
-    ax[1, 2].set_title('Ride-value-weighted density')
-    
     sample_size = 1000 # take sub-sample for 2D kernel-density plot
     indices = np.random.choice(df.shape[0], size=sample_size, replace=False)
     df_sample = df.iloc[indices, :]
 
     contours = sns.kdeplot(
-        x=df_sample['start_lng'], y=df_sample['start_lat'], weights=df_sample['ride_value'],
+        x=df_sample['start_lng'], y=df_sample['start_lat'],
         fill=False, cmap="coolwarm", linewidths=1, thresh=0.0, levels=20,
-        ax=ax[1, 2]
+        ax=ax[3]
     )
-    ax[1, 2].scatter(x=df['start_lng'], y=df['start_lat'], s=0.1, c='gray')
+    ax[3].scatter(x=df['start_lng'], y=df['start_lat'], s=0.1, c='gray')
 
     plt.tight_layout()
     plt.show()
@@ -159,14 +83,14 @@ def map_hotspot(df):
 
     fig, ax = plt.subplots()
 
-    ax.set_title('Ride-value-weighted density')
+    ax.set_title('Event density')
     ax.scatter(x=df['start_lng'], y=df['start_lat'], s=0.1, c='gray')
     
     sample_size = 1000 # take sub-sample for 2D kernel-density plot
     indices = np.random.choice(df.shape[0], size=sample_size, replace=False)
     df_sample = df.iloc[indices, :]
     contours = sns.kdeplot(
-        x=df_sample['start_lng'], y=df_sample['start_lat'], weights=df_sample['ride_value'],
+        x=df_sample['start_lng'], y=df_sample['start_lat'],
         fill=False, cmap="coolwarm", linewidths=1, thresh=0.0, levels=40, 
         ax=ax
     )
@@ -178,9 +102,9 @@ def map_hotspot(df):
     plt.show()
 
 
-def grid_data(df, nrow, ncol):
+def grid_data(df, nrow, ncol, tbin):
 
-    df['time_bin'] = df.index.floor('h')
+    df['time_bin'] = df.index.floor(tbin)
 
     lat_bins = np.linspace(df['start_lat'].min(), df['start_lat'].max(), num= nrow + 1)
     lng_bins = np.linspace(df['start_lng'].min(), df['start_lng'].max(), num= ncol + 1)
@@ -190,27 +114,20 @@ def grid_data(df, nrow, ncol):
 
     gridded_data = df \
         .groupby(['time_bin', 'lat_bin', 'lng_bin'], observed=False) \
-        .agg(
-            n_rides=('ride_value', 'count'),
-            mean_ride_value=('ride_value', 'mean'),
-            min_ride_value=('ride_value', 'min'),
-            max_ride_value=('ride_value', 'max'),
-            q50_ride_vaue=('ride_value', lambda x: x.quantile(0.5)),
-            q75_ride_vaue=('ride_value', lambda x: x.quantile(0.75)),
-        ) \
+        .agg(n_events=('start_lat', 'count')) \
         .reset_index()
 
     return gridded_data
 
 
 def widen_grid_data(gridded_data):
-    gridded_data_wide = gridded_data.pivot(index='time_bin', columns=['lat_bin', 'lng_bin'], values='n_rides')
+    gridded_data_wide = gridded_data.pivot(index='time_bin', columns=['lat_bin', 'lng_bin'], values='n_events')
     gridded_data_wide.columns = [f'lat_bin_{lat}_lng_bin_{lng}' for lat, lng in gridded_data_wide.columns]
 
     return gridded_data_wide
 
 
-def make_3d_array(gridded_data_wide, ncol, nrow):
+def make_3d_array(gridded_data_wide, nrow, ncol):
     ntimesteps = gridded_data_wide.shape[0]
     grid = list()
     for t in range(ntimesteps):
@@ -223,19 +140,19 @@ def make_3d_array(gridded_data_wide, ncol, nrow):
     return grid
 
 
-def plot_grid(df, nrides_total_grid, nrow, ncol):
+def plot_grid(df, grid_3d, nrow, ncol, zmax):
     
     lat_bins = np.linspace(df['start_lat'].min(), df['start_lat'].max(), num= nrow + 1)
     lng_bins = np.linspace(df['start_lng'].min(), df['start_lng'].max(), num= ncol + 1)
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.set_title('n_rides overall')
+    ax.set_title('n_events_total')
     for lng in lng_bins: ax.axvline(x=lng, linestyle='--', color='black', linewidth=0.5)
     for lat in lat_bins: ax.axhline(y=lat, linestyle='--', color='black', linewidth=0.5)
     im = ax.imshow(
-        nrides_total_grid, 
+        grid_3d.sum(axis=0), 
         cmap='coolwarm', origin='lower', 
-        vmin=0, vmax=100, alpha=0.4,
+        vmin=0, vmax=zmax, alpha=0.4,
         extent=(lng_bins[0], lng_bins[-1], lat_bins[0], lat_bins[-1])
     )
     ax.scatter(x=df['start_lng'], y=df['start_lat'], s=0.1, c='gray')
@@ -245,50 +162,255 @@ def plot_grid(df, nrides_total_grid, nrow, ncol):
     plt.show()
 
 
-def plot_timeseries_cells(gridded_data_wide_nonzero):
+def plot_timeseries_cells(gridded_data_wide):
 
     fig, ax = plt.subplots(figsize=(20, 3))
 
-    for _, col in gridded_data_wide_nonzero.items():
-        ax.plot(col, linewidth=1, alpha=0.5, color='black')
+    for _, col in gridded_data_wide.items():
+        ax.plot(col, linewidth=1, alpha=0.3, color='black')
 
-    ax.plot(gridded_data_wide_nonzero.sum(axis=1), color='red', label='total')    
-    ax.set_ylabel('No. rides')
-    ax.set_title('No. rides per hour, all nonzero grid cells')
+    ax.plot(gridded_data_wide.sum(axis=1), alpha=0.4, color='red', label='total')    
+    ax.set_ylabel('No. events')
+    ax.set_title('No. events by cell')
     plt.legend()
     plt.show()
 
 
-def animate_gridded_data(gridded_data):
+def split_data(df, f_train, f_val):
 
-    images = []
-    timestamps = gridded_data['time_bin'].unique()
-    for i, ts in enumerate(timestamps):
-        data_for_ts = gridded_data[gridded_data['time_bin'] == ts]   
-        grid = data_for_ts.pivot(index='lat_bin', columns='lng_bin', values='n_rides')    
+    i_train = int(f_train*len(df))
+    i_val =  int((f_train + f_val)*len(df))
 
-        fig, ax = plt.subplots(figsize=(6, 6))
+    train_df_original = df[:i_train] 
+    val_df_original = df[i_train:i_val]
+    test_df_original = df[i_val:]
 
-        im = ax.imshow(grid, cmap='coolwarm', origin='lower', vmin=0, vmax=350)
+    train_timestamps = df.index[:i_train] 
+    val_timestamps = df.index[i_train:i_val]
+    test_timestamps = df.index[i_val:]
+
+    train_mean = train_df_original.mean(axis=0)
+    train_sd = train_df_original.std(axis=0)
+
+    train_df = (train_df_original - train_mean) / train_sd
+    val_df = (val_df_original - train_mean) / train_sd
+    test_df = (test_df_original - train_mean) / train_sd
+
+    print(f'train: {train_df_original.shape}\nval: {val_df_original.shape}\ntest: {test_df_original.shape}')
+
+    return {
+        'train_df_original': train_df_original,
+        'val_df_original': val_df_original,
+        'test_df_original': test_df_original,
+        'train_timestamps': train_timestamps,
+        'val_timestamps': val_timestamps,
+        'test_timestamps': test_timestamps,
+        'train_mean': train_mean,
+        'train_sd': train_sd,
+        'train_df': train_df,
+        'val_df': val_df,
+        'test_df': test_df,
+    }
+
+
+class WindowGenerator:
+
+
+    def __init__(self, input_width, label_width, offset, train_df, val_df, test_df, label_columns, batch_size):
+
+        self.train_df = train_df
+        self.val_df = val_df
+        self.test_df = test_df
+
+        self.batch_size = batch_size
+
+        self.label_columns = label_columns
+        if label_columns is not None:
+            self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
         
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
-        plt.colorbar(im, cax=cax)
+        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
 
-        ax.set_title(f'No. rides at {ts}')
-        ax.set_xlim(-1, 19)
-        ax.set_ylim(-1, 19)
+        self.input_width = input_width
+        self.label_width = label_width
+        self.offset = offset
 
+        self.total_window_size = input_width + offset
+
+        self.input_slice = slice(0, input_width)
+        self.input_indices = np.arange(self.total_window_size)[self.input_slice]
+
+        self.label_start = self.total_window_size - self.label_width
+        self.label_slice = slice(self.label_start, None) # None -> slice goes until end of iterable on which it's used
+        self.label_indices = np.arange(self.total_window_size)[self.label_slice]
+
+
+    def __repr__(self):
+        return '\n'.join([
+            f'Total window size = {self.total_window_size}',
+            f'Input indices = {self.input_indices}',
+            f'Label indices = {self.label_indices}',
+            f'Label columns = {self.label_columns}'
+        ])
+
+
+    def split_window(self, features):
+        
+        # (1st dimension is batch, 2nd is timestep, 3rd is variable)
+        inputs = features[:, self.input_slice, :]
+        labels = features[:, self.label_slice, :]
+        
+        # keep only desired output columns
+        if self.label_columns is not None:
+            labels = tf.stack(
+                [labels[:, :, self.column_indices[name]] for name in self.label_columns],
+                axis=-1
+            )
+
+        inputs.set_shape([None, self.input_width, None])
+        labels.set_shape([None, self.label_width, None])
+        return inputs, labels
+
+
+    def plot(self, model=None, plot_col='n_events_total', max_subplots=3):
+        
+        inputs, labels = self.example
+        
+        plt.figure(figsize=(12, 5))
+        plot_col_index = self.column_indices[plot_col]
+        max_n = min(max_subplots, len(inputs))
+        for n in range(max_n):
+            plt.subplot(max_n, 1, n+1)
+            plt.ylabel(f'{plot_col} [normed]')
+            plt.plot(
+                self.input_indices, 
+                inputs[n, :, plot_col_index],
+                label='Inputs', 
+                marker='.', 
+                zorder=-10)
+
+            if self.label_columns:
+                label_col_index = self.label_columns_indices.get(plot_col, None)
+            else:
+                label_col_index = plot_col_index
+
+            if label_col_index is None:
+                continue
+
+            plt.scatter(
+                self.label_indices, 
+                labels[n, :, label_col_index],
+                edgecolors='k', 
+                label='Labels', 
+                c='#2ca02c', 
+                s=64)
+            if model is not None:
+                predictions = model(inputs)
+                plt.scatter(
+                    self.label_indices, 
+                    predictions[n, :, label_col_index],
+                    marker='X', 
+                    edgecolors='k', 
+                    label='Predictions',
+                    c='#ff7f0e', 
+                    s=64)
+
+            if n == 0:
+                plt.legend()
+
+        plt.xlabel('Time [h]')
         plt.tight_layout()
 
-        filename = f'results/gif_frames/frame_{i}.png'
-        plt.savefig(filename)
 
-        plt.close()
+    def make_dataset(self, data):
+        data = np.array(data, dtype=float)
+        ds = tf.keras.utils.timeseries_dataset_from_array(
+            data=data,
+            targets=None,
+            sequence_length=self.total_window_size,
+            sequence_stride=1,
+            shuffle=True,
+            batch_size=self.batch_size
+        )
+        ds = ds.map(self.split_window)
+        return ds
+    
 
-        images.append(imageio.imread(filename))
+    def make_dataset_no_shuffle(self, data):
+        data = np.array(data, dtype=float)
+        ds = tf.keras.utils.timeseries_dataset_from_array(
+            data=data,
+            targets=None,
+            sequence_length=self.total_window_size,
+            sequence_stride=1,
+            shuffle=False,
+            batch_size=self.batch_size
+        )
+        ds = ds.map(self.split_window)
+        return ds
 
-    imageio.mimsave('results/no_rides.gif', images, fps=2)
+
+    @property
+    def train_ds(self):
+        return self.make_dataset(self.train_df)
+    
+
+    @property
+    def val_ds(self):
+        return self.make_dataset(self.val_df)
+    
+
+    @property
+    def test_ds(self):
+        return self.make_dataset(self.test_df)
+    
+
+    @property
+    def test_ds_no_shuffle(self):
+        return self.make_dataset_no_shuffle(self.test_df)
+
+
+    @property
+    def example(self):
+        return next(iter(self.test_ds))
+
+
+def compile_and_fit(model, window, max_epochs, patience):
+    
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=patience,
+        mode='min'
+    )
+
+    model.compile(
+        loss=tf.keras.losses.MeanSquaredError(),
+        optimizer=tf.keras.optimizers.Adam(),
+        metrics=[tf.keras.metrics.MeanAbsoluteError()]
+    )
+
+    history = model.fit(
+        window.train_ds,
+        validation_data=window.val_ds,
+        epochs=max_epochs,
+        callbacks=[early_stopping]
+    )
+
+    return history
+
+
+def make_ypred(model, w, train_mean, train_sd):
+    ypred_scaled = model.predict(w.test_ds_no_shuffle)
+    ypred = ypred_scaled*train_sd + train_mean
+    ypred = tf.squeeze(ypred, axis=-1).numpy()
+    reconstructed = np.full((len(w.test_df),), np.nan)
+    start_index = w.input_width
+    for i, prediction in enumerate(ypred):
+        reconstructed[start_index + i] = prediction[0]
+
+    return reconstructed
+
+
+
 
 
 def check_stationarity_of_single_series(ts, i, j):
@@ -308,6 +430,35 @@ def check_ac_structure(data):
     ax[0].set_xticks([0, 24*1, 24*2, 24*3, 24*4, 24*5, 24*6])
     ax[1].set_xticks([0, 24*1, 24*2, 24*3, 24*4, 24*5, 24*6])
     plt.show()
+
+
+def compile_and_fit(model, window, max_epochs, patience=2):
+    
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=patience,
+        mode='min'
+    )
+
+    model.compile(
+        loss=tf.keras.losses.MeanSquaredError(),
+        optimizer=tf.keras.optimizers.Adam(),
+        metrics=[tf.keras.metrics.MeanAbsoluteError()]
+    )
+
+    model(window.example[0]) # build model to get number of parameters
+    
+    n_param = model.count_params()
+    print(f'\nEstimating {n_param:,} parameters on {window.train_df.shape[0]:,} datapoints\n')
+
+    history = model.fit(
+        window.train_ds,
+        validation_data=window.val_ds,
+        epochs=max_epochs,
+        callbacks=[early_stopping]
+    )
+
+    return history, n_param
 
 
 def compute_sape(ypred, ytest):
