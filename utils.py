@@ -432,35 +432,6 @@ def check_ac_structure(data):
     plt.show()
 
 
-def compile_and_fit(model, window, max_epochs, patience=2):
-    
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss',
-        patience=patience,
-        mode='min'
-    )
-
-    model.compile(
-        loss=tf.keras.losses.MeanSquaredError(),
-        optimizer=tf.keras.optimizers.Adam(),
-        metrics=[tf.keras.metrics.MeanAbsoluteError()]
-    )
-
-    model(window.example[0]) # build model to get number of parameters
-    
-    n_param = model.count_params()
-    print(f'\nEstimating {n_param:,} parameters on {window.train_df.shape[0]:,} datapoints\n')
-
-    history = model.fit(
-        window.train_ds,
-        validation_data=window.val_ds,
-        epochs=max_epochs,
-        callbacks=[early_stopping]
-    )
-
-    return history, n_param
-
-
 def compute_sape(ypred, ytest):
     '''
     Compute symmetrical absolute percentage errors
