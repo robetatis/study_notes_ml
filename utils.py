@@ -374,7 +374,7 @@ class WindowGenerator:
         return next(iter(self.test_ds))
 
 
-def compile_and_fit(model, window, max_epochs, patience):
+def compile_and_fit(model, window, max_epochs, patience, verbose):
     
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss',
@@ -392,7 +392,8 @@ def compile_and_fit(model, window, max_epochs, patience):
         window.train_ds,
         validation_data=window.val_ds,
         epochs=max_epochs,
-        callbacks=[early_stopping]
+        callbacks=[early_stopping],
+        verbose=verbose
     )
 
     return history
