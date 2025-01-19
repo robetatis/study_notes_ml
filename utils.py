@@ -146,11 +146,11 @@ def plot_grid(df, grid_3d, nrow, ncol, zmax):
     lng_bins = np.linspace(df['start_lng'].min(), df['start_lng'].max(), num= ncol + 1)
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.set_title('n_events_total')
+    ax.set_title(r'$log_{10}(\text{n_events_total})$')
     for lng in lng_bins: ax.axvline(x=lng, linestyle='--', color='black', linewidth=0.5)
     for lat in lat_bins: ax.axhline(y=lat, linestyle='--', color='black', linewidth=0.5)
     im = ax.imshow(
-        grid_3d.sum(axis=0), 
+        np.log10(grid_3d.sum(axis=0)), 
         cmap='coolwarm', origin='lower', 
         vmin=0, vmax=zmax, alpha=0.4,
         extent=(lng_bins[0], lng_bins[-1], lat_bins[0], lat_bins[-1])
