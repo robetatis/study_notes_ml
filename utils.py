@@ -176,7 +176,7 @@ def plot_timeseries_cells(gridded_data_wide):
     plt.show()
 
 
-def split_data(df, f_train, f_val):
+def split_and_standarize_data(df, f_train, f_val):
 
     i_train = int(f_train*len(df))
     i_val =  int((f_train + f_val)*len(df))
@@ -195,6 +195,11 @@ def split_data(df, f_train, f_val):
     train_df = (train_df_original - train_mean) / train_sd
     val_df = (val_df_original - train_mean) / train_sd
     test_df = (test_df_original - train_mean) / train_sd
+
+    train_df.fillna(0.0, inplace=True)
+    val_df.fillna(0.0, inplace=True)
+    test_df.fillna(0.0, inplace=True)
+
 
     print(f'train: {train_df_original.shape}\nval: {val_df_original.shape}\ntest: {test_df_original.shape}')
 
@@ -216,7 +221,7 @@ def split_data(df, f_train, f_val):
 class WindowGenerator:
 
 
-    def __init__(self, input_width, label_width, offset, train_df, val_df, test_df, label_columns, batch_size):
+    def __init__(self, input_width, label_width, offset, train_df, val_df, test_df, batch_size, label_columns=None):
 
         self.train_df = train_df
         self.val_df = val_df
