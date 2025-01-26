@@ -416,9 +416,6 @@ def make_ypred(model, w, train_mean, train_sd):
     return reconstructed
 
 
-
-
-
 def check_stationarity_of_single_series(ts, i, j):
     result = adfuller(ts)
     print(f'ADF Statistic: {result[0]:.2f}')
