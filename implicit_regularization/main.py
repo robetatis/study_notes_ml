@@ -2,7 +2,7 @@ import json
 import random
 import math
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
 from pathlib import Path
 from collections import deque
 import matplotlib.pyplot as plt
@@ -13,6 +13,8 @@ EPOCHS = 5
 
 def generate_toy_data(n_datapoints, path_output):
 
+    path_output = Path(__file__).resolve().parent / path_output
+    path_output.mkdir(parents=True, exist_ok=True)
 
     beta = [1.14, 0.31, -0.31, -0.23, -3.13]
     X = np.stack([
@@ -82,8 +84,8 @@ class BatchGenerator:
 if __name__ == '__main__':
 
     #generate_toy_data(10000, 'data/train')
-    #generate_toy_data(1000, 'data/test')
     #generate_toy_data(3000, 'data/val')
+    #generate_toy_data(1000, 'data/test')
 
     bg_train = BatchGenerator('data/train')
     bg_test = BatchGenerator('data/test')
