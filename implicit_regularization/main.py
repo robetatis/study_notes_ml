@@ -1,17 +1,27 @@
+import os
+os.environ['PYTHONIOENCODING'] = 'UTF-8'
 import json
 import random
 import math
 import numpy as np
-#import tensorflow as tf
+import tensorflow as tf
 from pathlib import Path
 from collections import deque
 import matplotlib.pyplot as plt
+from sklearn.datasets import make_regression
 
 
 BATCH_SIZE = 32
 EPOCHS = 5
+N_TRAINING_DATAPOINTS = 10000
+N_VAL_DATAPOINTS = 1000
+N_TEST_DATAPOINTS = 2000
 
-def generate_toy_data(n_datapoints, path_output):
+n_training_steps_per_epoch = math.ceil(N_TRAINING_DATAPOINTS/BATCH_SIZE)
+n_val_steps_per_epoch = math.ceil(N_VAL_DATAPOINTS/BATCH_SIZE)
+
+
+def generate_toy_data(n_datapoints, path_output, datapoints_per_file):
 
     path_output = Path(__file__).resolve().parent / path_output
     path_output.mkdir(parents=True, exist_ok=True)
@@ -32,10 +42,23 @@ def generate_toy_data(n_datapoints, path_output):
         xiyi = {'i': f'{i:010}','x_1': xi[1],'x_2': xi[2],'x_3': xi[3],'x_4': xi[4],'y': yi}
         toy_data.append(xiyi)
         
-        if (i+1) % 100 == 0:
+        if (i+1) % datapoints_per_file == 0:
             with open(f'{path_output}/data_{i:010}.json', 'w') as f:
                 json.dump(toy_data, f, indent=4)
             toy_data = list()
+
+
+def make_data(n, f_train, f_test):
+    X, y = make_regression(n_samples=n, n_features=4, n_informative=4, n_targets=1)
+    X_train = X[:int(0.8*f_train*n)]
+    X_val = X[int(0.8*f_train*n):-int(f_test*n)]
+    X_test = X[-int(f_test*n):]
+
+    y_train = y[:int(0.8*f_train*n)]
+    y_val = y[int(0.8*f_train*n):-int(f_test*n)]
+    y_test = y[-int(f_test*n):]
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
 
 class BatchGenerator:
@@ -53,7 +76,6 @@ class BatchGenerator:
                 data = json.load(f) # this could be a memory problem if each json is too big to be fully loaded to memory. could be done line by line
                 for datapoint in data:
                     self.datapoint_paths.append((file, datapoint['i']))
-        self.n_datapoints = len(self.datapoint_paths)
         random.shuffle(self.datapoint_paths)
 
 
@@ -83,38 +105,45 @@ class BatchGenerator:
 
 if __name__ == '__main__':
 
-    #generate_toy_data(10000, 'data/train')
-    #generate_toy_data(3000, 'data/val')
-    #generate_toy_data(1000, 'data/test')
+    #dataset_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(batch_size)
+    
+    #generate_toy_data(N_TRAINING_DATAPOINTS, 'data/train', datapoints_per_file=5)
+    #generate_toy_data(N_VAL_DATAPOINTS, 'data/val', datapoints_per_file=5)
+    #generate_toy_data(N_TEST_DATAPOINTS, 'data/test', datapoints_per_file=5)
 
-    bg_train = BatchGenerator('data/train')
-    bg_test = BatchGenerator('data/test')
-    bg_val = BatchGenerator('data/val')
+    #bg_train = BatchGenerator('data/train')
+    #bg_test = BatchGenerator('data/test')
+    #bg_val = BatchGenerator('data/val')
 
-    train_ds = tf.data.Dataset.from_generator(
-        lambda: bg_train.generate_batch(batch_size=32),
-        output_signature=(
-            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-        )
-    ).repeat().prefetch(tf.data.AUTOTUNE)
+    #train_ds = tf.data.Dataset.from_generator(
+    #    lambda: bg_train.generate_batch(batch_size=BATCH_SIZE),
+    #    output_signature=(
+    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+    #    )
+    #).repeat().prefetch(tf.data.AUTOTUNE)
 
-    test_ds = tf.data.Dataset.from_generator(
-        lambda: bg_test.generate_batch(batch_size=32),
-        output_signature=(
-            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-        )
-    ).repeat().prefetch(tf.data.AUTOTUNE)
+    #test_ds = tf.data.Dataset.from_generator(
+    #    lambda: bg_test.generate_batch(batch_size=BATCH_SIZE),
+    #    output_signature=(
+    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+    #    )
+    #).repeat().prefetch(tf.data.AUTOTUNE)
 
-    val_ds = tf.data.Dataset.from_generator(
-        lambda: bg_val.generate_batch(batch_size=32),
-        output_signature=(
-            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-        )
-    ).repeat().prefetch(tf.data.AUTOTUNE)
+    #val_ds = tf.data.Dataset.from_generator(
+    #    lambda: bg_val.generate_batch(batch_size=BATCH_SIZE),
+    #    output_signature=(
+    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+    #    )
+    #).repeat().prefetch(tf.data.AUTOTUNE)
 
+    X_train, y_train, X_val, y_val, X_test, y_test = make_data(n=100, f_train=0.7, f_test=0.3)
+
+    train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(BATCH_SIZE).repeat()
+    val_ds = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(BATCH_SIZE).repeat()
+    test_ds = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(BATCH_SIZE).repeat()
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=(4,)),
@@ -123,10 +152,16 @@ if __name__ == '__main__':
 
     tb_callback = tf.keras.callbacks.TensorBoard(log_dir='logs/', histogram_freq=1)
 
-    model.compile(optimizer='adam', loss='mse', metrics=['mse'])
+    model.compile(optimizer='adam', loss='mse')
 
-    #steps_per_epoch = math.ceil(bg_train.n_datapoints/BATCH_SIZE)
-
-    model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[tb_callback], verbose=1)
+    model.fit(
+        train_ds, 
+        validation_data=val_ds, 
+        validation_steps=n_val_steps_per_epoch,
+        epochs=EPOCHS, 
+        steps_per_epoch=n_training_steps_per_epoch,
+        callbacks=[tb_callback], 
+        verbose=1
+    )
 
 
