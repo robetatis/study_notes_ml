@@ -6,13 +6,13 @@ import math
 import numpy as np
 import tensorflow as tf
 from pathlib import Path
-from collections import deque
-import matplotlib.pyplot as plt
+import datetime
 from sklearn.datasets import make_regression
+import matplotlib.pyplot as plt
 
 
 BATCH_SIZE = 32
-EPOCHS = 5
+EPOCHS = 2
 N_TRAINING_DATAPOINTS = 10000
 N_VAL_DATAPOINTS = 1000
 N_TEST_DATAPOINTS = 2000
@@ -105,53 +105,54 @@ class BatchGenerator:
 
 if __name__ == '__main__':
 
-    #dataset_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(batch_size)
-    
     #generate_toy_data(N_TRAINING_DATAPOINTS, 'data/train', datapoints_per_file=5)
     #generate_toy_data(N_VAL_DATAPOINTS, 'data/val', datapoints_per_file=5)
     #generate_toy_data(N_TEST_DATAPOINTS, 'data/test', datapoints_per_file=5)
+    #X_train, y_train, X_val, y_val, X_test, y_test = make_data(n=100, f_train=0.7, f_test=0.3)
+    #train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(BATCH_SIZE).repeat()
+    #val_ds = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(BATCH_SIZE).repeat()
+    #test_ds = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(BATCH_SIZE).repeat()
 
-    #bg_train = BatchGenerator('data/train')
-    #bg_test = BatchGenerator('data/test')
-    #bg_val = BatchGenerator('data/val')
+    bg_train = BatchGenerator('data/train')
+    bg_test = BatchGenerator('data/test')
+    bg_val = BatchGenerator('data/val')
 
-    #train_ds = tf.data.Dataset.from_generator(
-    #    lambda: bg_train.generate_batch(batch_size=BATCH_SIZE),
-    #    output_signature=(
-    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-    #    )
-    #).repeat().prefetch(tf.data.AUTOTUNE)
+    train_ds = tf.data.Dataset.from_generator(
+        lambda: bg_train.generate_batch(batch_size=BATCH_SIZE),
+        output_signature=(
+            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+        )
+    ).repeat().prefetch(tf.data.AUTOTUNE)
 
-    #test_ds = tf.data.Dataset.from_generator(
-    #    lambda: bg_test.generate_batch(batch_size=BATCH_SIZE),
-    #    output_signature=(
-    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-    #    )
-    #).repeat().prefetch(tf.data.AUTOTUNE)
+    test_ds = tf.data.Dataset.from_generator(
+        lambda: bg_test.generate_batch(batch_size=BATCH_SIZE),
+        output_signature=(
+            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+        )
+    )
 
-    #val_ds = tf.data.Dataset.from_generator(
-    #    lambda: bg_val.generate_batch(batch_size=BATCH_SIZE),
-    #    output_signature=(
-    #        tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
-    #        tf.TensorSpec(shape=(None, ), dtype=tf.float32),
-    #    )
-    #).repeat().prefetch(tf.data.AUTOTUNE)
-
-    X_train, y_train, X_val, y_val, X_test, y_test = make_data(n=100, f_train=0.7, f_test=0.3)
-
-    train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(BATCH_SIZE).repeat()
-    val_ds = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(BATCH_SIZE).repeat()
-    test_ds = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(BATCH_SIZE).repeat()
+    val_ds = tf.data.Dataset.from_generator(
+        lambda: bg_val.generate_batch(batch_size=BATCH_SIZE),
+        output_signature=(
+            tf.TensorSpec(shape=(None, 4), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, ), dtype=tf.float32),
+        )
+    ).repeat().prefetch(tf.data.AUTOTUNE)
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=(4,)),
+        tf.keras.layers.Dense(100, activation='relu'),
+        tf.keras.layers.Dense(100, activation='relu'),
+        tf.keras.layers.Dense(100, activation='relu'),
+        tf.keras.layers.Dense(100, activation='relu'),
         tf.keras.layers.Dense(1),
     ])
 
-    tb_callback = tf.keras.callbacks.TensorBoard(log_dir='logs/', histogram_freq=1)
-
+    log_dir = f"logs/fit/" + datetime.datetime.now().strftime('%Y%m%d%H%M')
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    
     model.compile(optimizer='adam', loss='mse')
 
     model.fit(
@@ -164,4 +165,15 @@ if __name__ == '__main__':
         verbose=1
     )
 
+    print(model.count_params())
+
+    # beta = [1.14, 0.31, -0.31, -0.23, -3.13]
+
+
+    y_pred = model.predict(test_ds)
+    y_test = np.concatenate([y.numpy() for X, y in test_ds])
+
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, y_pred)
+    plt.savefig(f"y_test_vs_y_pred_{datetime.datetime.now().strftime('%Y%m%d%H%M')}.png")
 
