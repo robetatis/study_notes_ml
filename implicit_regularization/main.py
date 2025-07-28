@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 BATCH_SIZE = 32
-EPOCHS = 2
+EPOCHS = 20
 N_TRAINING_DATAPOINTS = 10000
 N_VAL_DATAPOINTS = 1000
 N_TEST_DATAPOINTS = 2000
@@ -59,6 +59,19 @@ def make_data(n, f_train, f_test):
     y_test = y[-int(f_test*n):]
 
     return X_train, y_train, X_val, y_val, X_test, y_test
+
+
+def plot_results():
+    y_pred = model.predict(test_ds)
+    y_test = np.concatenate([y.numpy() for X, y in test_ds])
+
+    min_val = np.min(np.min(y_pred), np.min(y_test))
+    max_val = np.max(np.max(y_pred), np.max(y_test))
+
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, y_pred)
+    ax.plot([min_val, max_val], [min_val, max_val], 'k--')
+    plt.savefig(f"y_test_vs_y_pred_{datetime.datetime.now().strftime('%Y%m%d%H%M')}.png")
 
 
 class BatchGenerator:
@@ -143,10 +156,10 @@ if __name__ == '__main__':
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=(4,)),
-        tf.keras.layers.Dense(100, activation='relu'),
-        tf.keras.layers.Dense(100, activation='relu'),
-        tf.keras.layers.Dense(100, activation='relu'),
-        tf.keras.layers.Dense(100, activation='relu'),
+        #tf.keras.layers.Dense(100, activation='relu'),
+        #tf.keras.layers.Dense(100, activation='relu'),
+        #tf.keras.layers.Dense(100, activation='relu'),
+        #tf.keras.layers.Dense(100, activation='relu'),
         tf.keras.layers.Dense(1),
     ])
 
@@ -169,11 +182,6 @@ if __name__ == '__main__':
 
     # beta = [1.14, 0.31, -0.31, -0.23, -3.13]
 
+    plot_results()
 
-    y_pred = model.predict(test_ds)
-    y_test = np.concatenate([y.numpy() for X, y in test_ds])
-
-    fig, ax = plt.subplots()
-    ax.scatter(y_test, y_pred)
-    plt.savefig(f"y_test_vs_y_pred_{datetime.datetime.now().strftime('%Y%m%d%H%M')}.png")
 
